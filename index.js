@@ -38,6 +38,51 @@ app.get("/events", async (req, res) => {
   }
 });
 
+app.get("/upcoming-event/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await eventsCollection.findOne({ _id: new ObjectId(id) });
+    res.send(result);
+  } catch (error) {
+    res.status(500).send({ message: "Error fetching event by ID" });
+  }
+});
+
+// upcoming events with category filter
+app.get('/upcoming-events', async (req, res) => {
+  try {
+    const { category } = req.query;
+  const today = new Date().toISOString().split('T')[0];
+  const query = {
+    eventDate: { $gte: today }
+  };
+  if (category && category !== 'all') {
+    query.eventType = category;
+  }
+  const data = await eventsCollection
+    .find(query)
+    .sort({ eventDate: 1 })
+    .toArray();
+
+  res.send(data);
+
+  }catch (error){
+    res.status(500).send({message: 'Error fetching upcoming events'})
+  }
+  
+});
+
+app.get('/event-categories' , async (req,res)=>{
+  try{
+    const categories = await eventsCollection.distinct('eventType')
+    res.send(categories)
+
+  }catch(error){
+    res.status(500).send({message: 'Error fetching event categories'})
+  }
+})
+
+// upcoming events with limit=6
 app.get("/upcoming-events", async (req, res) => {
   try {
     const today = new Date().toISOString().split("T")[0];
