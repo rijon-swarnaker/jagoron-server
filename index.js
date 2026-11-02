@@ -22,6 +22,37 @@ export async function connectToMongoDB() {
 const mongoClient = await connectToMongoDB();
 const db = mongoClient.db("jagoron");
 const eventsCollection = db.collection("events");
+const joinedEventsCollection = db.collection('joinedEvents')
+
+
+app.post("/join-event", async (req, res) => {
+  try {
+    const { userId, eventId } = req.body;
+
+    if (!userId || !eventId) {
+      return res.status(400).send({ message: "Missing userId or eventId" });
+    }
+    const exists = await joinedEventsCollection.findOne({ userId, eventId });
+
+    if (exists) {
+      return res.status(409).send({
+        success: false,
+        alreadyJoined: true,
+        message: "Already Exists!",
+      });
+    }
+    await joinedEventsCollection.insertOne({ userId, eventId });
+
+    res.status(201).send({
+      success: true,
+      message: "Successfully Joined!",
+    });
+
+  } catch (error) {
+    res.status(500).send({ success: false, message: "Server Error!" });
+  }
+});
+
 
 app.post("/add-events", async (req, res) => {
   const event = req.body;
