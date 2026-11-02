@@ -29,6 +29,28 @@ app.post("/add-events", async (req, res) => {
   res.send(result);
 });
 
+app.get("/events", async (req, res) => {
+  try {
+    const data = await eventsCollection.find().toArray();
+    res.send(data);
+  } catch (error) {
+    res.status(500).send({ message: "Error fetching events" });
+  }
+});
+
+app.get("/upcoming-events", async (req, res) => {
+  try {
+    const today = new Date().toISOString().split("T")[0];
+    const data = await eventsCollection
+      .find({ eventDate: { $gte: today } })
+      .sort({ eventDate: 1 })
+      .toArray();
+    res.send(data);
+  } catch (error) {
+    res.status(500).send({ message: "Error fetching upcoming events" });
+  }
+});
+
 app.get("/recent-upcoming-events", async (req, res) => {
   try {
     const today = new Date().toISOString().split("T")[0];
