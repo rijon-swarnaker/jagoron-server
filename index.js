@@ -49,6 +49,8 @@ app.get("/upcoming-event/:id", async (req, res) => {
 });
 
 // upcoming events with category filter
+//upcoming-events?category=all or category
+
 app.get('/upcoming-events', async (req, res) => {
   try {
     const { category } = req.query;
@@ -82,19 +84,7 @@ app.get('/event-categories' , async (req,res)=>{
   }
 })
 
-// upcoming events with limit=6
-app.get("/upcoming-events", async (req, res) => {
-  try {
-    const today = new Date().toISOString().split("T")[0];
-    const data = await eventsCollection
-      .find({ eventDate: { $gte: today } })
-      .sort({ eventDate: 1 })
-      .toArray();
-    res.send(data);
-  } catch (error) {
-    res.status(500).send({ message: "Error fetching upcoming events" });
-  }
-});
+
 
 app.get("/recent-upcoming-events", async (req, res) => {
   try {
