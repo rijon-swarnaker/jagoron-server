@@ -204,6 +204,16 @@ app.get("/recent-upcoming-events", async (req, res) => {
   }
 });
 
+app.patch('/manage-event/:id', async (req , res)=>{
+  const {id} = req.params
+  const updateData = req.body
+  const result = await eventsCollection.updateOne(
+    {_id: new ObjectId(id)},
+    {$set:updateData}
+  )
+  res.json(result)
+})
+
 //http://localhost:5000/add-events
 
 app.get("/", (req, res) => {
