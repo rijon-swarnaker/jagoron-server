@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import { MongoClient, ObjectId } from "mongodb";
 import "dotenv/config";
+import { createRemoteJWKSet, jwtVerify } from "jose";
 
 const app = express();
 const PORT = 5000;
@@ -25,6 +26,37 @@ const eventsCollection = db.collection("events");
 const joinedEventsCollection = db.collection("joinedEvents");
 
 
+const verifyApi =async (req , res , next ) => {
+  const authHeader = req.headers.authorization;
+  console.log(authHeader);
+
+  if (!authHeader) {
+    return res.status(401).send({msg:'Unauthorized!'})
+  }
+
+  const token = authHeader.split(' ')[1]
+
+  if(!token){
+    return res.status(401).send({msg:'Unauthorized!'})
+  }
+  
+  const JWKS = createRemoteJWKSet(new URL(`${process.env.CLIENT_URL}/api/auth/jwks`))
+
+  try {
+    const {payload} = await jwtVerify(token,JWKS)
+  } catch (error) {
+    return res.status(500).send({msg: 'Server Error!'})
+  }
+  
+  next()
+  
+  
+}
+
+
+
+
+//manage-event-delete
 app.delete('/manage-events/:id', async (req, res) => {
   try {
     const { id } = req.params;
@@ -48,11 +80,12 @@ app.delete('/manage-events/:id', async (req, res) => {
   }
 });
 
-app.post("/join-event", async (req, res) => {
+
+app.post("/join-event",verifyApi, async (req, res) => {
   try {
     const event = req.body;
 
-    if (!event || !event.eventId || !event.email) {
+    if (!event?.eventId || !event?.email) {
       return res.status(400).send({
         success: false,
         message: "Event ID and User Email are required!",
@@ -67,29 +100,30 @@ app.post("/join-event", async (req, res) => {
     if (alreadyJoined) {
       return res.status(409).send({
         success: false,
-        message: "Already Joined This Event!",
+        message: "You have already joined this event!",
       });
     }
 
-    const result = await joinedEventsCollection.insertOne({
-      ...event,
+    const { _id, ...eventData } = event;
+    const joinData = {
+      ...eventData,
       joinedAt: new Date(),
-    });
+    };
+
+    const result = await joinedEventsCollection.insertOne(joinData);
 
     return res.status(201).send({
       success: true,
-      message: "Successfully Joined Event!",
-      insertedId: result.insertedId,
+      message: "Successfully joined the event!",
+      joinId: result.insertedId,
     });
-
   } catch (error) {
     console.error("Join Event Error:", error);
 
-  
     if (error.code === 11000) {
       return res.status(409).send({
         success: false,
-        message: "Already Joined This Event!",
+        message: "You have already joined this event!",
       });
     }
 
@@ -100,8 +134,8 @@ app.post("/join-event", async (req, res) => {
   }
 });
 
-
-app.get("/joined-events/:email", async (req, res) => {
+//joined-event
+app.get("/joined-events/:email",verifyApi, async (req, res) => {
   try {
     const { email } = req.params;
     const result = await joinedEventsCollection
@@ -114,7 +148,8 @@ app.get("/joined-events/:email", async (req, res) => {
   }
 });
 
-app.get("/manage-events/:email", async (req, res) => {
+//manage-event-page
+app.get("/manage-events/:email",verifyApi, async (req, res) => {
   try {
     const { email } = req.params;
 
@@ -132,11 +167,12 @@ app.get("/manage-events/:email", async (req, res) => {
   }
 });
 
-app.post("/add-events", async (req, res) => {
+app.post("/add-events",verifyApi, async (req, res) => {
   const event = req.body;
   const result = await eventsCollection.insertOne(event);
   res.send(result);
 });
+
 
 app.get("/events", async (req, res) => {
   try {
@@ -147,6 +183,7 @@ app.get("/events", async (req, res) => {
   }
 });
 
+//upcoming-event-details-page
 app.get("/upcoming-event/:id", async (req, res) => {
   try {
     const { id } = req.params;
@@ -204,7 +241,27 @@ app.get("/recent-upcoming-events", async (req, res) => {
   }
 });
 
-app.patch('/manage-event/:id', async (req , res)=>{
+app.get("/event-join-count/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const count = await joinedEventsCollection.countDocuments({
+      eventId: id,
+    });
+    return res.status(200).send({
+      success: true,
+      count,
+    });
+
+  } catch (error) {
+    return res.status(500).send({
+      success: false,
+      message: "Internal Server Error!",
+    });
+  }
+});
+
+app.patch('/manage-event/:id',verifyApi, async (req , res)=>{
   const {id} = req.params
   const updateData = req.body
   const result = await eventsCollection.updateOne(
@@ -213,6 +270,7 @@ app.patch('/manage-event/:id', async (req , res)=>{
   )
   res.json(result)
 })
+
 
 //http://localhost:5000/add-events
 
